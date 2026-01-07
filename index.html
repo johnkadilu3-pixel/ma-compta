@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Olame Ledger Web - Win11 Style</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        input, select {
+            background: rgba(15, 23, 42, 0.6) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+        }
+        tr:nth-child(even) { background: rgba(255, 255, 255, 0.03); }
+        tr:hover { background: rgba(59, 130, 246, 0.1); }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                📔 Olame Ledger Web
+            </h1>
+            <p class="text-slate-400 mt-2">Ton relevé bancaire personnel, partout avec toi.</p>
+        </header>
+
+        <div class="glass p-6 rounded-3xl shadow-2xl mb-10">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <input type="text" id="date" placeholder="Date (ex: 11/03)" class="p-3 rounded-xl outline-none">
+                <input type="text" id="libelle" placeholder="Libellé de l'opération" class="p-3 rounded-xl outline-none md:col-span-2">
+                <select id="devise" class="p-3 rounded-xl outline-none">
+                    <option value="€">Euro (€)</option>
+                    <option value="$">Dollar ($)</option>
+                    <option value="£">Livre (£)</option>
+                </select>
+
+                <div class="flex gap-2 items-center">
+                    <input type="number" id="cap_val" placeholder="Capitaux" class="p-3 rounded-xl outline-none w-full">
+                    <select id="cap_type" class="p-3 rounded-xl outline-none bg-blue-600">
+                        <option value="D">D</option>
+                        <option value="C">C</option>
+                    </select>
+                </div>
+                
+                <input type="text" id="valeur_jrs" placeholder="Valeur Jrs" class="p-3 rounded-xl outline-none">
+                
+                <div class="flex gap-2 items-center">
+                    <input type="number" id="nb_val" placeholder="Nombre" class="p-3 rounded-xl outline-none w-full">
+                    <select id="nb_type" class="p-3 rounded-xl outline-none bg-blue-600">
+                        <option value="D">D</option>
+                        <option value="C">C</option>
+                    </select>
+                </div>
+
+                <button onclick="ajouterLigne()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-all shadow-lg">
+                    ✚ AJOUTER
+                </button>
+            </div>
+        </div>
+
+        <div class="glass rounded-3xl overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-800 text-slate-300 uppercase text-sm">
+                            <th class="p-4">Dates</th>
+                            <th class="p-4 text-left">Libellé</th>
+                            <th class="p-4 text-center">Capitaux (D)</th>
+                            <th class="p-4 text-center">Capitaux (C)</th>
+                            <th class="p-4 text-center">Valeur Jrs</th>
+                            <th class="p-4 text-center">Nombre (D)</th>
+                            <th class="p-4 text-center">Nombre (C)</th>
+                            <th class="p-4"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="journalBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="mt-6 flex justify-between items-center">
+            <button onclick="sauvegarder()" class="text-sm bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-full transition">💾 Sauvegarder Localement</button>
+            <p id="statut" class="text-slate-500 italic text-sm">En attente de saisie...</p>
+            <button onclick="toutEffacer()" class="text-sm bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white px-6 py-2 rounded-full transition">Tout supprimer</button>
+        </div>
+    </div>
+
+    <script>
+        let journalData = JSON.parse(localStorage.getItem('olame_ledger')) || [];
+
+        // Charger les données au démarrage
+        window.onload = () => {
+            document.getElementById('date').value = new Date().toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit'});
+            rendreTableau();
+        };
+
+        function ajouterLigne() {
+            const entry = {
+                id: Date.now(),
+                date: document.getElementById('date').value,
+                libelle: document.getElementById('libelle').value,
+                devise: document.getElementById('devise').value,
+                cap_val: document.getElementById('cap_val').value,
+                cap_type: document.getElementById('cap_type').value,
+                valeur_jrs: document.getElementById('valeur_jrs').value,
+                nb_val: document.getElementById('nb_val').value,
+                nb_type: document.getElementById('nb_type').value
+            };
+
+            if(!entry.libelle || !entry.cap_val) return alert("Remplis au moins le libellé et le montant !");
+
+            journalData.unshift(entry);
+            rendreTableau();
+            document.getElementById('libelle').value = "";
+            document.getElementById('cap_val').value = "";
+        }
+
+        function rendreTableau() {
+            const tbody = document.getElementById('journalBody');
+            tbody.innerHTML = "";
+
+            journalData.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-4 border-b border-slate-700">${item.date}</td>
+                    <td class="p-4 border-b border-slate-700 font-medium">${item.libelle}</td>
+                    <td class="p-4 border-b border-slate-700 text-center text-emerald-400">${item.cap_type === 'D' ? item.cap_val + ' ' + item.devise : ''}</td>
+                    <td class="p-4 border-b border-slate-700 text-center text-rose-400">${item.cap_type === 'C' ? item.cap_val + ' ' + item.devise : ''}</td>
+                    <td class="p-4 border-b border-slate-700 text-center text-slate-400">${item.valeur_jrs}</td>
+                    <td class="p-4 border-b border-slate-700 text-center">${item.nb_type === 'D' ? item.nb_val : ''}</td>
+                    <td class="p-4 border-b border-slate-700 text-center">${item.nb_type === 'C' ? item.nb_val : ''}</td>
+                    <td class="p-4 border-b border-slate-700 text-right">
+                        <button onclick="supprimer(${item.id})" class="text-rose-500 hover:scale-110 transition">✕</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('statut').innerText = `${journalData.length} opération(s) enregistrée(s).`;
+        }
+
+        function supprimer(id) {
+            journalData = journalData.filter(item => item.id !== id);
+            rendreTableau();
+        }
+
+        function sauvegarder() {
+            localStorage.setItem('olame_ledger', JSON.stringify(journalData));
+            alert("Sauvegardé dans ton navigateur !");
+        }
+
+        function toutEffacer() {
+            if(confirm("Tu veux vraiment tout vider ?")) {
+                journalData = [];
+                localStorage.removeItem('olame_ledger');
+                rendreTableau();
+            }
+        }
+    </script>
+</body>
+</html>
